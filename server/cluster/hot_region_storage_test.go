@@ -111,6 +111,22 @@ func BenchmarkInsert(b *testing.B) {
 	b.StopTimer()
 }
 
+func BenchmarkRead(b *testing.B) {
+	ctx := context.Background()
+	_, opt, err := newTestScheduleConfig()
+	if err != nil {
+		b.Fatal(err)
+	}
+	raft := newTestCluster(ctx, opt).RaftCluster
+	//delete data in between today and tomrrow
+	hotRegionStorage, err := NewHotRegionsHistoryStorage(ctx,
+		"/tmp/hishotregions/one/pd2/hot-region", nil, raft, nil, 20, 10*time.Hour)
+	if err != nil {
+		b.Fatal(err)
+	}
+	iter := hotRegionStorage.NewIterator(0, time.Now().Unix())
+	iter.Next()
+}
 func BenchmarkInsertAfterMonth(b *testing.B) {
 	regionStorage, clear, err := newTestHotRegionStorage(10*time.Hour, -1)
 	if err != nil {
@@ -229,6 +245,7 @@ func newTestHotRegionStorage(pullInterval time.Duration, remianedDays int64) (
 	}
 	return
 }
+
 func writeIntoDB(regionStorage *HotRegionStorage,
 	regions []*core.RegionInfo, times int,
 	endTime time.Time) time.Time {
@@ -282,7 +299,7 @@ func newBenchmarkHotRegoinHistory(
 			RegionID:       region.GetMeta().Id,
 			StoreID:        peer.StoreId,
 			LastUpdateTime: start,
-			HotDegree:      rand.Int(),
+			HotDegree:      rand.Int() % 100,
 			ByteRate:       rand.Float64() * 100,
 			KeyRate:        rand.Float64() * 100,
 			QueryRate:      rand.Float64() * 100,
