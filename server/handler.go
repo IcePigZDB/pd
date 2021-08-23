@@ -903,7 +903,7 @@ func (h *Handler) SetStoreLimitTTL(data string, value float64, ttl time.Duration
 	}, ttl)
 }
 
-// GetAllRequestHistroyHotRegion get historyHotRegions as request
+// GetAllRequestHistroyHotRegion get historyHotRegions as request.
 func (h *Handler) GetAllRequestHistroyHotRegion(request *statistics.HistoryHotRegionsRequest) (*statistics.HistoryHotRegions, error) {
 	var hotRegionTypes []string
 	if len(request.HotRegionTypes) != 0 {
@@ -913,9 +913,10 @@ func (h *Handler) GetAllRequestHistroyHotRegion(request *statistics.HistoryHotRe
 	}
 	iter := h.s.hotRegionStorage.NewIterator(hotRegionTypes, request.StartTime, request.EndTime)
 	results := make([]*statistics.HistoryHotRegion, 0)
-	regionSet := make(map[uint64]bool)
-	storeSet := make(map[uint64]bool)
-	peerSet := make(map[uint64]bool)
+
+	regionSet, storeSet, peerSet, roleSet :=
+		make(map[uint64]bool), make(map[uint64]bool),
+		make(map[uint64]bool), make(map[int64]bool)
 	for _, id := range request.RegionIDs {
 		regionSet[id] = true
 	}
@@ -924,6 +925,9 @@ func (h *Handler) GetAllRequestHistroyHotRegion(request *statistics.HistoryHotRe
 	}
 	for _, id := range request.PeerIDs {
 		peerSet[id] = true
+	}
+	for _, id := range request.Roles {
+		roleSet[id] = true
 	}
 	var next *statistics.HistoryHotRegion
 	var err error
@@ -935,6 +939,9 @@ func (h *Handler) GetAllRequestHistroyHotRegion(request *statistics.HistoryHotRe
 			continue
 		}
 		if len(peerSet) != 0 && !peerSet[next.PeerID] {
+			continue
+		}
+		if len(roleSet) != 0 && !roleSet[next.IsLeader] {
 			continue
 		}
 		if request.HighHotDegree < next.HotDegree || request.LowHotDegree > next.HotDegree {
