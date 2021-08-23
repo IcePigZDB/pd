@@ -1,3 +1,16 @@
+// Copyright 2021 TiKV Project Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package statistics
 
 import "github.com/pingcap/kvproto/pkg/encryptionpb"
@@ -11,10 +24,12 @@ type HistoryHotRegions struct {
 // HistoryHotRegion wraps hot region info
 // it is storage format of hot_region_storage
 type HistoryHotRegion struct {
-	UpdateTime    int64   `json:"update_time,omitempty"`
-	RegionID      uint64  `json:"region_id,omitempty"`
-	PeerID        uint64  `json:"peer_id,omitempty"`
-	StoreID       uint64  `json:"store_id,omitempty"`
+	UpdateTime int64  `json:"update_time,omitempty"`
+	RegionID   uint64 `json:"region_id,omitempty"`
+	PeerID     uint64 `json:"peer_id,omitempty"`
+	StoreID    uint64 `json:"store_id,omitempty"`
+	//0 means not leader,1 means leader
+	IsLeader      int64   `json:"is_leader,omitempty"`
 	HotRegionType string  `json:"hot_region_type,omitempty"`
 	HotDegree     int64   `json:"hot_degree,omitempty"`
 	FlowBytes     float64 `json:"flow_bytes,omitempty"`
@@ -30,15 +45,16 @@ type HistoryHotRegion struct {
 }
 
 // HistoryHotRegionsRequest wrap request condition from tidb.
-//it is request from tidb
-//TODO
-//find a better place to put this struct
+// it is request from tidb
+// TODO:find a better place to put this struct
 type HistoryHotRegionsRequest struct {
-	StartTime      int64    `json:"start_time,omitempty"`
-	EndTime        int64    `json:"end_time,omitempty"`
-	RegionIDs      []uint64 `json:"region_ids,omitempty"`
-	StoreIDs       []uint64 `json:"store_ids,omitempty"`
-	PeerIDs        []uint64 `json:"peer_ids,omitempty"`
+	StartTime int64    `json:"start_time,omitempty"`
+	EndTime   int64    `json:"end_time,omitempty"`
+	RegionIDs []uint64 `json:"region_ids,omitempty"`
+	StoreIDs  []uint64 `json:"store_ids,omitempty"`
+	PeerIDs   []uint64 `json:"peer_ids,omitempty"`
+	//0 means not leader,1 means leader
+	Roles          []int64  `json:"is_leader,omitempy"`
 	HotRegionTypes []string `json:"hot_region_type,omitempty"`
 	LowHotDegree   int64    `json:"low_hot_degree,omitempty"`
 	HighHotDegree  int64    `json:"high_hot_degree,omitempty"`

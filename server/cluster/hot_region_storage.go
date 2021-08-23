@@ -1,3 +1,16 @@
+// Copyright 2016 TiKV Project Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cluster
 
 import (
@@ -22,10 +35,10 @@ import (
 	"github.com/tikv/pd/server/statistics"
 )
 
-// HotRegionStorage used to storage hot region info,
-// It will pull the hot region information according to the pullInterval interval
-// And delete and save data beyond the remainingDays
-// Close must be called after use
+// HotRegionStorage is used to storage hot region info,
+// It will pull the hot region information according to the pullInterval interval.
+// And delete and save data beyond the remainingDays.
+// Close must be called after use.
 type HotRegionStorage struct {
 	*kv.LeveldbKV
 	encryptionKeyManager *encryptionkm.KeyManager
@@ -41,16 +54,19 @@ type HotRegionStorage struct {
 }
 
 const (
+	// leveldb will run compaction after 30 times delete.
 	defaultCompactionTime = 30
+	// delete will run at this o`clock.
+	defaultDeleteTime = 4
 )
 
-// HotRegionTypes stands for hot type
+// HotRegionTypes stands for hot type.
 var HotRegionTypes = []string{
 	"read",
 	"write",
 }
 
-// NewHotRegionsStorage create storage to store hot regions info
+// NewHotRegionsStorage create storage to store hot regions info.
 func NewHotRegionsStorage(
 	ctx context.Context,
 	path string,
@@ -77,17 +93,19 @@ func NewHotRegionsStorage(
 		cluster:              cluster,
 		member:               member,
 	}
-	h.backgroundFlush()
-	h.backgroundDelete()
+	if remianedDays > 0 {
+		h.backgroundFlush()
+		h.backgroundDelete()
+	}
 	return &h, nil
 }
 
-//delete hot_region info which update_time is smaller than time.Now() minus /remain day in the background
+// delete hot region which update_time is smaller than time.Now() minus remain day in the background.
 func (h *HotRegionStorage) backgroundDelete() {
-	//make delete happened in 0 clock
+	// make delete happened in defaultDeleteTime clock.
 	now := time.Now()
 	next := now.Add(time.Hour * 24)
-	next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
+	next = time.Date(next.Year(), next.Month(), next.Day(), defaultDeleteTime, 0, 0, 0, next.Location())
 	t := time.NewTicker(next.Sub(now))
 	go func() {
 		select {
@@ -110,7 +128,7 @@ func (h *HotRegionStorage) backgroundDelete() {
 
 }
 
-//write hot_region info into db in the background
+// Write hot_region info into db in the background.
 func (h *HotRegionStorage) backgroundFlush() {
 	ticker := time.NewTicker(h.pullInterval)
 	go func() {
@@ -133,7 +151,7 @@ func (h *HotRegionStorage) backgroundFlush() {
 	}()
 }
 
-//NewIterator return a iterator which can traverse all data as reqeust
+// NewIterator return a iterator which can traverse all data as reqeust.
 func (h *HotRegionStorage) NewIterator(requireTypes []string, startTime, endTime int64) HotRegionStorageIterator {
 	iters := make([]iterator.Iterator, len(requireTypes))
 	for index, requireType := range requireTypes {
@@ -148,7 +166,7 @@ func (h *HotRegionStorage) NewIterator(requireTypes []string, startTime, endTime
 	}
 }
 
-//Close close hotRegionStorage
+// Close closes the kv.
 func (h *HotRegionStorage) Close() error {
 	h.hotRegionInfoCancel()
 	if err := h.LeveldbKV.Close(); err != nil {
@@ -159,19 +177,31 @@ func (h *HotRegionStorage) Close() error {
 
 func (h *HotRegionStorage) pullHotRegionInfo() error {
 	cluster := h.cluster
-	hotReadLeaderInfo := cluster.coordinator.getHotReadRegions().AsLeader
-	if err := h.packHotRegionInfo(hotReadLeaderInfo,
-		"read"); err != nil {
+	hotReadRegion := cluster.coordinator.getHotReadRegions()
+	hotReadLeaderRegion := hotReadRegion.AsLeader
+	hotReadPeerRegion := hotReadRegion.AsPeer
+	if err := h.packHotRegionInfo(hotReadLeaderRegion,
+		HotRegionTypes[0], 1); err != nil {
 		return err
 	}
-	hotWriteLeaderInfo := cluster.coordinator.getHotWriteRegions().AsLeader
-	err := h.packHotRegionInfo(hotWriteLeaderInfo,
-		"write")
+	if err := h.packHotRegionInfo(hotReadPeerRegion,
+		HotRegionTypes[0], 0); err != nil {
+		return err
+	}
+	hotWriteRegion := cluster.coordinator.getHotWriteRegions()
+	hotWriteLeaderInfo := hotWriteRegion.AsLeader
+	hotWritePeerInfo := hotWriteRegion.AsPeer
+	if err := h.packHotRegionInfo(hotWriteLeaderInfo,
+		HotRegionTypes[1], 1); err != nil {
+		return err
+	}
+	err := h.packHotRegionInfo(hotWritePeerInfo,
+		HotRegionTypes[1], 0)
 	return err
 }
 
 func (h *HotRegionStorage) packHotRegionInfo(hotLeaderInfo statistics.StoreHotPeersStat,
-	hotRegionType string) error {
+	hotRegionType string, isLeader int64) error {
 	cluster := h.cluster
 	batchHotInfo := h.batchHotInfo
 	for _, hotPeersStat := range hotLeaderInfo {
@@ -189,10 +219,12 @@ func (h *HotRegionStorage) packHotRegionInfo(hotLeaderInfo statistics.StoreHotPe
 				}
 			}
 			stat := statistics.HistoryHotRegion{
-				UpdateTime:     hotPeerStat.LastUpdateTime.Unix(),
+				// store in  ms.
+				UpdateTime:     hotPeerStat.LastUpdateTime.UnixNano() / int64(time.Millisecond),
 				RegionID:       hotPeerStat.RegionID,
 				StoreID:        hotPeerStat.StoreID,
 				PeerID:         peerID,
+				IsLeader:       isLeader,
 				HotDegree:      int64(hotPeerStat.HotDegree),
 				FlowBytes:      hotPeerStat.ByteRate,
 				KeyRate:        hotPeerStat.KeyRate,
@@ -204,7 +236,8 @@ func (h *HotRegionStorage) packHotRegionInfo(hotLeaderInfo statistics.StoreHotPe
 			}
 			batchHotInfo[HotRegionStorePath(
 				stat.HotRegionType,
-				hotPeerStat.LastUpdateTime.Unix(),
+				// store in ms.
+				hotPeerStat.LastUpdateTime.UnixNano()/int64(time.Millisecond),
 				hotPeerStat.RegionID)] = &stat
 		}
 	}
@@ -236,7 +269,7 @@ func (h *HotRegionStorage) delete() error {
 	batch := new(leveldb.Batch)
 	for _, hotRegionType := range HotRegionTypes {
 		startKey := HotRegionStorePath(hotRegionType, 0, 0)
-		endTime := time.Now().AddDate(0, 0, 0-int(h.remianedDays)).Unix()
+		endTime := time.Now().AddDate(0, 0, 0-int(h.remianedDays)).UnixNano() / int64(time.Millisecond)
 		endKey := HotRegionStorePath(hotRegionType, endTime, math.MaxInt64)
 		iter := db.NewIterator(&util.Range{
 			Start: []byte(startKey), Limit: []byte(endKey)}, nil)
@@ -302,8 +335,8 @@ func (it *HotRegionStorageIterator) Next() (*statistics.HistoryHotRegion, error)
 	return &message, nil
 }
 
-//HotRegionStorePath generate hot region store key for HotRegionStorage
-//TODO:find a better place to put this function
+// HotRegionStorePath generate hot region store key for HotRegionStorage.
+// TODO:find a better place to put this function.
 func HotRegionStorePath(hotRegionType string, updateTime int64, regionID uint64) string {
 	return path.Join(
 		"schedule",
