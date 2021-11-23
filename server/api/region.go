@@ -308,17 +308,17 @@ func (h *regionsHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Tags region
-// @Summary List regions start from a key.
-// @Param key query string true "Region start key"
-// @Param endkey query string true "Range end key"
-// @Param limit query integer false "Limit count" default(16)
+// @Summary List regions in a given range[startKey,endKey).
+// @Param startKey query string true "Region range start key"
+// @Param endkey query string true "Region range end key"
+// @Param limit query integer false "Limit count" default(16) without endKey, default(-1) with endKey
 // @Produce json
 // @Success 200 {object} RegionsInfo
 // @Failure 400 {string} string "The input is invalid."
-// @Router /regions/key [get]
+// @Router /regions/keys [get]
 func (h *regionsHandler) ScanRegions(w http.ResponseWriter, r *http.Request) {
 	rc := getCluster(r)
-	startKey := r.URL.Query().Get("key")
+	startKey := r.URL.Query().Get("start_key")
 	endKey := r.URL.Query().Get("end_key")
 
 	limit := defaultRegionLimit

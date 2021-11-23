@@ -427,7 +427,7 @@ func (s *testGetRegionSuite) TestRegionKey(c *C) {
 	c.Assert(r.GetID(), Equals, RegionInfo.ID)
 }
 
-func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
+func (s *testGetRegionSuite) TestScanRegionByKeys(c *C) {
 	r1 := newTestRegionInfo(2, 1, []byte("a"), []byte("b"))
 	r2 := newTestRegionInfo(3, 1, []byte("b"), []byte("c"))
 	r3 := newTestRegionInfo(4, 2, []byte("c"), []byte("e"))
@@ -439,7 +439,7 @@ func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
 	mustRegionHeartbeat(c, s.svr, r4)
 	mustRegionHeartbeat(c, s.svr, r)
 
-	url := fmt.Sprintf("%s/regions/key?key=%s", s.urlPrefix, "b")
+	url := fmt.Sprintf("%s/regions/keys?start_key=%s", s.urlPrefix, "b")
 	regionIds := []uint64{3, 4, 5, 99}
 	regions := &RegionsInfo{}
 	err := readJSON(testDialClient, url, regions)
@@ -448,7 +448,7 @@ func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
 	for i, v := range regionIds {
 		c.Assert(v, Equals, regions.Regions[i].ID)
 	}
-	url = fmt.Sprintf("%s/regions/key?key=%s", s.urlPrefix, "d")
+	url = fmt.Sprintf("%s/regions/keys?start_key=%s", s.urlPrefix, "d")
 	regionIds = []uint64{4, 5, 99}
 	regions = &RegionsInfo{}
 	err = readJSON(testDialClient, url, regions)
@@ -457,7 +457,7 @@ func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
 	for i, v := range regionIds {
 		c.Assert(v, Equals, regions.Regions[i].ID)
 	}
-	url = fmt.Sprintf("%s/regions/key?key=%s", s.urlPrefix, "g")
+	url = fmt.Sprintf("%s/regions/keys?start_key=%s", s.urlPrefix, "g")
 	regionIds = []uint64{5, 99}
 	regions = &RegionsInfo{}
 	err = readJSON(testDialClient, url, regions)
@@ -466,7 +466,7 @@ func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
 	for i, v := range regionIds {
 		c.Assert(v, Equals, regions.Regions[i].ID)
 	}
-	url = fmt.Sprintf("%s/regions/key?end_key=%s", s.urlPrefix, "e")
+	url = fmt.Sprintf("%s/regions/keys?end_key=%s", s.urlPrefix, "e")
 	regionIds = []uint64{2, 3, 4}
 	regions = &RegionsInfo{}
 	err = readJSON(testDialClient, url, regions)
@@ -475,7 +475,7 @@ func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
 	for i, v := range regionIds {
 		c.Assert(v, Equals, regions.Regions[i].ID)
 	}
-	url = fmt.Sprintf("%s/regions/key?key=%s&end_key=%s", s.urlPrefix, "b", "g")
+	url = fmt.Sprintf("%s/regions/keys?start_key=%s&end_key=%s", s.urlPrefix, "b", "g")
 	regionIds = []uint64{3, 4}
 	regions = &RegionsInfo{}
 	err = readJSON(testDialClient, url, regions)
@@ -484,7 +484,7 @@ func (s *testGetRegionSuite) TestScanRegionByKey(c *C) {
 	for i, v := range regionIds {
 		c.Assert(v, Equals, regions.Regions[i].ID)
 	}
-	url = fmt.Sprintf("%s/regions/key?key=%s&end_key=%s", s.urlPrefix, "b", []byte{0xFF, 0xFF, 0xCC})
+	url = fmt.Sprintf("%s/regions/keys?start_key=%s&end_key=%s", s.urlPrefix, "b", []byte{0xFF, 0xFF, 0xCC})
 	regionIds = []uint64{3, 4, 5, 99}
 	regions = &RegionsInfo{}
 	err = readJSON(testDialClient, url, regions)
