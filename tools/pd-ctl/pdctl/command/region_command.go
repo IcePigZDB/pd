@@ -40,7 +40,7 @@ var (
 	regionsConfVerPrefix    = "pd/api/v1/regions/confver"
 	regionsVersionPrefix    = "pd/api/v1/regions/version"
 	regionsSizePrefix       = "pd/api/v1/regions/size"
-	regionsKeyPrefix        = "pd/api/v1/regions/key"
+	regionsKeyPrefix        = "pd/api/v1/regions/keys"
 	regionsSiblingPrefix    = "pd/api/v1/regions/sibling"
 	regionsRangeHolesPrefix = "pd/api/v1/regions/range-holes"
 	regionIDPrefix          = "pd/api/v1/region/id"
@@ -404,7 +404,7 @@ func showRegionsByKeysCommandFunc(cmd *cobra.Command, args []string) {
 		return
 	}
 	endKey = url.QueryEscape(endKey)
-	prefix := regionsKeyPrefix + "?key=" + key + "&end_key=" + endKey
+	prefix := regionsKeyPrefix + "?start_key=" + key + "&end_key=" + endKey
 	if len(args) == 3 {
 		if _, err = strconv.Atoi(args[2]); err != nil {
 			cmd.Println("limit should be a number")
