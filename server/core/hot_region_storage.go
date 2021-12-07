@@ -73,8 +73,8 @@ type HistoryHotRegion struct {
 	FlowBytes     float64 `json:"flow_bytes,omitempty"`
 	KeyRate       float64 `json:"key_rate,omitempty"`
 	QueryRate     float64 `json:"query_rate,omitempty"`
-	StartKey      []byte  `json:"start_key,omitempty"`
-	EndKey        []byte  `json:"end_key,omitempty"`
+	StartKey      string  `json:"start_key,omitempty"`
+	EndKey        string  `json:"end_key,omitempty"`
 	// Encryption metadata for start_key and end_key. encryption_meta.iv is IV for start_key.
 	// IV for end_key is calculated from (encryption_meta.iv + len(start_key)).
 	// The field is only used by PD and should be ignored otherwise.
@@ -254,16 +254,16 @@ func (h *HotRegionStorage) packHistoryHotRegions(historyHotRegions []HistoryHotR
 	for i := range historyHotRegions {
 		region := &metapb.Region{
 			Id:             historyHotRegions[i].RegionID,
-			StartKey:       historyHotRegions[i].StartKey,
-			EndKey:         historyHotRegions[i].EndKey,
+			StartKey:       []byte(historyHotRegions[i].StartKey),
+			EndKey:         []byte(historyHotRegions[i].EndKey),
 			EncryptionMeta: historyHotRegions[i].EncryptionMeta,
 		}
 		region, err := encryption.EncryptRegion(region, h.encryptionKeyManager)
 		if err != nil {
 			return err
 		}
-		historyHotRegions[i].StartKey = region.StartKey
-		historyHotRegions[i].EndKey = region.EndKey
+		historyHotRegions[i].StartKey = string(region.StartKey)
+		historyHotRegions[i].EndKey = string(region.EndKey)
 		key := HotRegionStorePath(hotRegionType, historyHotRegions[i].UpdateTime, historyHotRegions[i].RegionID)
 		h.batchHotInfo[key] = &historyHotRegions[i]
 	}
@@ -338,15 +338,15 @@ func (it *HotRegionStorageIterator) Next() (*HistoryHotRegion, error) {
 	}
 	region := &metapb.Region{
 		Id:             message.RegionID,
-		StartKey:       message.StartKey,
-		EndKey:         message.EndKey,
+		StartKey:       []byte(message.StartKey),
+		EndKey:         []byte(message.EndKey),
 		EncryptionMeta: message.EncryptionMeta,
 	}
 	if err := encryption.DecryptRegion(region, it.encryptionKeyManager); err != nil {
 		return nil, err
 	}
-	message.StartKey = region.StartKey
-	message.EndKey = region.EndKey
+	message.StartKey = HexRegionKeyStr(region.StartKey)
+	message.EndKey = HexRegionKeyStr(region.EndKey)
 	message.EncryptionMeta = nil
 	return &message, nil
 }
