@@ -122,6 +122,17 @@ func newTestRegionInfo(regionID, storeID uint64, start, end []byte, opts ...core
 		core.SetWrittenKeys(1 * 1024 * 1024),
 		core.SetReadBytes(200 * 1024 * 1024),
 		core.SetReadKeys(2 * 1024 * 1024),
+		core.SetQueryStats(&pdpb.QueryStats{
+			GC:                     10,
+			Get:                    10,
+			Scan:                   10,
+			Coprocessor:            10,
+			Delete:                 10,
+			DeleteRange:            10,
+			Put:                    10,
+			Prewrite:               10,
+			AcquirePessimisticLock: 10,
+		}),
 	}
 	newOpts = append(newOpts, opts...)
 	region := core.NewRegionInfo(metaRegion, leader, newOpts...)
